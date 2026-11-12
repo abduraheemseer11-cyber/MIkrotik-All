@@ -1,0 +1,56 @@
+name: Build .NET MAUI App
+
+on:
+  push:
+    branches: [ "master" ] # قم بتغييره إلى main إذا كان فرعك الرئيسي كذلك
+  pull_request:
+    branches: [ "master" ]
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: net8.0-windows10.0.19041.0
+          - os: ubuntu-latest
+            target: net8.0-android
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' # قم بتعديل الإصدار ليتطابق مع إصدار .NET المستخدم في مشروعك (مثلاً 8.0 أو 9.0)
+
+    - name: Install .NET MAUI Workloads
+      run: dotnet workload install maui-${{ matrix.os == 'windows-latest' && 'windows' || 'android' }}
+
+    - name: Restore dependencies
+      run: dotnet restore
+
+    - name: Build Solution
+      run: dotnet build --configuration Release --no-restore -f ${{ matrix.target }}
+
+    - name: Upload Artifacts (Android APK)
+      if: matrix.os == 'ubuntu-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: android-apk
+        path: '**/bin/Release/${{ matrix.target }}/publish/*.apk'
+        if-no-files-found: ignore
+
+    - name: Upload Artifacts (Windows MSIX)
+      if: matrix.os == 'windows-latest'
+      uses: actions/upload-artifact@v4
+      with:
+        name: windows-msix
+        path: '**/bin/Release/${{ matrix.target }}/*.msix'
+        if-no-files-found: ignore
